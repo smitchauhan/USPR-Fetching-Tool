@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>USPR Fetching Tool</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f172a; color: #e2e8f0;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; padding: 40px 20px;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 8px; color: #38bdf8; }
+    .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 0.95rem; }
+    .container { width: 100%; max-width: 900px; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; color: #cbd5e1; font-size: 0.9rem; }
+    input[type="text"] {
+      width: 100%; padding: 12px 16px; border: 1px solid #334155;
+      border-radius: 8px; background: #1e293b; color: #f1f5f9;
+      font-size: 0.95rem; outline: none; transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: #38bdf8; }
+
+    .upload-area {
+      border: 2px dashed #334155; border-radius: 8px; padding: 24px;
+      text-align: center; cursor: pointer; transition: all 0.2s;
+      background: #1e293b; position: relative;
+    }
+    .upload-area:hover { border-color: #38bdf8; }
+    .upload-area.loaded { border-color: #10b981; border-style: solid; }
+    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon { font-size: 1.5rem; margin-bottom: 8px; }
+    .upload-text { color: #94a3b8; font-size: 0.9rem; }
+    .upload-text strong { color: #38bdf8; }
+    .upload-loaded-text { color: #10b981; font-size: 0.9rem; font-weight: 600; }
+
+    .detected-info {
+      margin-top: 12px; padding: 12px; background: #0f172a;
+      border-radius: 6px; font-size: 0.78rem; color: #64748b; display: none; text-align: left;
+    }
+    .detected-info .det-row { display: flex; gap: 8px; margin-bottom: 4px; }
+    .detected-info .det-label { color: #94a3b8; min-width: 130px; font-weight: 600; }
+    .detected-info .det-val { color: #67e8f9; word-break: break-all; }
+
+    .mode-tabs {
+      display: flex; gap: 0; margin-bottom: 20px;
+      background: #1e293b; border-radius: 10px; padding: 4px; border: 1px solid #334155;
+    }
+    .mode-tab {
+      flex: 1; padding: 12px 16px; text-align: center; border-radius: 8px;
+      cursor: pointer; font-weight: 600; font-size: 0.85rem;
+      color: #94a3b8; transition: all 0.2s; border: none; background: none;
+    }
+    .mode-tab:hover { color: #e2e8f0; }
+    .mode-tab.active { background: #0ea5e9; color: #fff; }
+    .mode-tab.active-green { background: #10b981; color: #fff; }
+
+    .mode-desc {
+      font-size: 0.82rem; color: #64748b; margin-bottom: 16px;
+      padding: 10px 14px; background: #1e293b; border-radius: 6px; border-left: 3px solid #0ea5e9;
+    }
+    .mode-desc.green { border-left-color: #10b981; }
+
+    .url-row { display: flex; gap: 12px; align-items: flex-end; }
+    .url-row .url-input-wrap { flex: 1; }
+    .url-row .url-input-wrap label { margin-bottom: 6px; }
+
+    .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+
+    button {
+      padding: 12px 24px; background: #0ea5e9; color: #fff; border: none;
+      border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s; white-space: nowrap;
+    }
+    button:hover { background: #0284c7; }
+    button:disabled { background: #334155; cursor: not-allowed; }
+    .btn-discover { background: #8b5cf6; }
+    .btn-discover:hover { background: #7c3aed; }
+    .btn-discover:disabled { background: #334155; }
+    .btn-scrape-all { background: #10b981; }
+    .btn-scrape-all:hover { background: #059669; }
+    .btn-scrape-all:disabled { background: #334155; }
+    .btn-clear { background: #ef4444; padding: 12px 18px; font-size: 0.85rem; }
+    .btn-clear:hover { background: #dc2626; }
+
+    .error { background: #451a2a; color: #fca5a5; padding: 12px 16px; border-radius: 8px; margin-top: 20px; display: none; }
+
+    /* Selectors config */
+    .selectors-toggle {
+      margin-top: 16px; margin-bottom: 16px;
+    }
+    .selectors-toggle button {
+      padding: 8px 16px; font-size: 0.82rem; background: #334155; color: #94a3b8;
+    }
+    .selectors-toggle button:hover { background: #475569; color: #e2e8f0; }
+    .selectors-panel {
+      display: none; background: #1e293b; border: 1px solid #334155;
+      border-radius: 8px; padding: 16px; margin-bottom: 16px;
+    }
+    .selectors-panel.open { display: block; }
+    .sel-section-title { font-size: 0.85rem; color: #38bdf8; font-weight: 700; margin-bottom: 8px; margin-top: 12px; }
+    .sel-section-title:first-child { margin-top: 0; }
+    .sel-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
+    .sel-row label { margin: 0; min-width: 110px; font-size: 0.8rem; font-weight: 400; color: #94a3b8; }
+    .sel-row input { flex: 1; padding: 8px 12px; font-size: 0.82rem; font-family: 'Consolas', monospace; }
+    .sel-hint { font-size: 0.72rem; color: #64748b; margin-bottom: 8px; }
+    #autoDetectBtn:hover:not(:disabled) { background: #7c3aed; }
+    #autoDetectBtn:disabled { background: #334155; cursor: not-allowed; }
+
+    .single-page-options { margin-top: 12px; }
+    .sp-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+    .sp-row label { margin: 0; min-width: 100px; font-size: 0.85rem; }
+    .sp-row input[type="text"] { flex: 1; padding: 10px 14px; font-size: 0.85rem; }
+    .selector-hint { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+
+    .year-picker { margin-top: 20px; display: none; }
+    .year-picker-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .year-picker-header h3 { font-size: 1rem; color: #38bdf8; }
+    .year-picker-actions { display: flex; gap: 8px; }
+    .year-picker-actions button { padding: 6px 12px; font-size: 0.8rem; background: #334155; }
+    .year-picker-actions button:hover { background: #475569; }
+    .year-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+    .year-card {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      cursor: pointer; transition: all 0.15s; user-select: none;
+    }
+    .year-card:hover { border-color: #38bdf8; }
+    .year-card.selected { border-color: #10b981; background: #0f2a1f; }
+    .year-card input[type="checkbox"] { accent-color: #10b981; width: 16px; height: 16px; cursor: pointer; }
+    .year-card .year-name { font-weight: 700; font-size: 1rem; color: #f1f5f9; }
+    .year-card .year-count { font-size: 0.8rem; color: #94a3b8; margin-left: auto; }
+
+    .progress-section { margin-top: 20px; display: none; }
+    .progress-bar-outer { width: 100%; height: 8px; background: #1e293b; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+    .progress-bar-inner { height: 100%; background: #0ea5e9; border-radius: 4px; transition: width 0.3s ease; width: 0%; }
+    .progress-text { font-size: 0.85rem; color: #94a3b8; }
+    .progress-log { margin-top: 8px; font-size: 0.78rem; color: #64748b; max-height: 160px; overflow-y: auto; }
+
+    .year-tags { margin-top: 16px; display: none; }
+    .year-tags-label { font-size: 0.85rem; color: #94a3b8; margin-bottom: 8px; }
+    .year-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .year-tag { padding: 4px 12px; background: #1e40af; color: #93c5fd; border-radius: 16px; font-size: 0.82rem; font-weight: 600; }
+    .year-tag .count { color: #60a5fa; font-weight: 400; margin-left: 4px; }
+
+    .result-section { margin-top: 24px; display: none; }
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .result-header h2 { font-size: 1.1rem; color: #38bdf8; }
+    .result-meta { font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; }
+    .btn-group { display: flex; gap: 8px; }
+    .copy-btn, .download-btn { padding: 6px 14px; font-size: 0.8rem; background: #334155; }
+    .copy-btn:hover, .download-btn:hover { background: #475569; }
+    pre {
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      padding: 16px; overflow-x: auto; font-size: 0.8rem; line-height: 1.5;
+      color: #a5f3fc; max-height: 600px; overflow-y: auto;
+    }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; background: #0ea5e9; color: #fff;
+      border-radius: 50%; font-size: 0.75rem; font-weight: 700; margin-right: 8px;
+    }
+    .scan-status { font-size: 0.82rem; color: #a78bfa; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>USPR Fetching Tool</h1>
+  <p class="subtitle">Scrape press releases from any site into any JSON format</p>
+
+  <div class="container">
+
+    <!-- Step 1: Upload -->
+    <div class="form-group">
+      <label><span class="step-num">1</span>Upload Sample JSON Format</label>
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="jsonFile" accept=".json" onchange="handleFileUpload(event)" />
+        <div id="uploadPlaceholder">
+          <div class="upload-icon">&#128196;</div>
+          <p class="upload-text">Drop your sample <strong>.json</strong> file here or click to browse</p>
+        </div>
+        <div id="uploadSuccess" style="display:none;">
+          <p class="upload-loaded-text" id="uploadFileName"></p>
+        </div>
+      </div>
+      <div class="detected-info" id="detectedInfo"></div>
+    </div>
+
+    <!-- Step 2: Mode -->
+    <div class="form-group">
+      <label><span class="step-num">2</span>Site Type</label>
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tabYearUrl" onclick="setMode('year-url')">Year Pages</button>
+        <button class="mode-tab" id="tabSingle" onclick="setMode('single')">Single Page</button>
+        <button class="mode-tab" id="tabSingleLoadMore" onclick="setMode('load-more')">Load More</button>
+        <button class="mode-tab" id="tabSinglePagination" onclick="setMode('pagination')">Pagination</button>
+      </div>
+      <div class="mode-desc" id="modeDesc">Each year has its own URL like /news/2013/, /news/2014/. The tool scans all years automatically.</div>
+    </div>
+
+    <!-- Step 3: Selectors -->
+    <div class="selectors-toggle">
+      <button onclick="toggleSelectors()">CSS Selectors (click to configure)</button>
+    </div>
+    <div class="selectors-panel" id="selectorsPanel">
+      <p class="sel-hint">Leave empty for auto-detection, or type your own CSS selectors. Right-click any element on the site → Inspect → copy the class name.</p>
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+        <button onclick="autoDetect()" id="autoDetectBtn" style="padding:6px 14px; font-size:0.8rem; background:#8b5cf6; color:#fff;">Auto-detect from URL</button>
+        <span id="autoDetectStatus" style="font-size:0.78rem; color:#94a3b8;"></span>
+      </div>
+      <div style="background:#0f172a; border-radius:6px; padding:12px 14px; margin-bottom:12px; font-size:0.78rem; line-height:1.8; color:#94a3b8;">
+        <strong style="color:#38bdf8;">Example 1:</strong> Listing page<br>
+        <code style="color:#67e8f9;">&lt;div class="<span style="color:#fbbf24;">post-item</span>"&gt;</code><br>
+        <code style="color:#67e8f9;">&nbsp;&nbsp;&lt;a class="<span style="color:#fbbf24;">post-title</span>" href="/news/article-1"&gt;</code>Article Title<code style="color:#67e8f9;">&lt;/a&gt;</code><br>
+        <code style="color:#67e8f9;">&nbsp;&nbsp;&lt;span class="<span style="color:#fbbf24;">post-date</span>"&gt;</code>16 May 2026<code style="color:#67e8f9;">&lt;/span&gt;</code><br>
+        <code style="color:#67e8f9;">&lt;/div&gt;</code><br>
+        Set: &nbsp; Item row = <code style="color:#10b981; background:#1e293b; padding:2px 6px; border-radius:4px;">.post-item</code> &nbsp; Title/link = <code style="color:#10b981; background:#1e293b; padding:2px 6px; border-radius:4px;">.post-title</code> &nbsp; Date = <code style="color:#10b981; background:#1e293b; padding:2px 6px; border-radius:4px;">.post-date</code>
+        <br><br>
+        <strong style="color:#38bdf8;">Example 2:</strong> Detail page<br>
+        <code style="color:#67e8f9;">&lt;h1 class="<span style="color:#fbbf24;">article-heading</span>"&gt;</code>Press Release Title<code style="color:#67e8f9;">&lt;/h1&gt;</code><br>
+        <code style="color:#67e8f9;">&lt;time class="<span style="color:#fbbf24;">publish-date</span>"&gt;</code>May 16, 2026<code style="color:#67e8f9;">&lt;/time&gt;</code><br>
+        <code style="color:#67e8f9;">&lt;div class="<span style="color:#fbbf24;">article-body</span>"&gt;</code>Full content here...<code style="color:#67e8f9;">&lt;/div&gt;</code><br>
+        Set: &nbsp; Title = <code style="color:#10b981; background:#1e293b; padding:2px 6px; border-radius:4px;">h1.article-heading</code> &nbsp; Date = <code style="color:#10b981; background:#1e293b; padding:2px 6px; border-radius:4px;">.publish-date</code> &nbsp; Content = <code style="color:#10b981; background:#1e293b; padding:2px 6px; border-radius:4px;">.article-body</code>
+        <br><br>
+        <strong style="color:#38bdf8;">Example 3:</strong> Nested link inside a wrapper<br>
+        <code style="color:#67e8f9;">&lt;div class="<span style="color:#fbbf24;">news-link</span>"&gt;&lt;a href="/news/item"&gt;</code>Title<code style="color:#67e8f9;">&lt;/a&gt;&lt;/div&gt;</code><br>
+        Set: &nbsp; Title/link = <code style="color:#10b981; background:#1e293b; padding:2px 6px; border-radius:4px;">.news-link a</code> &nbsp; (selects the <code style="color:#67e8f9;">&lt;a&gt;</code> inside <code style="color:#67e8f9;">.news-link</code>)
+      </div>
+      <div class="sel-section-title">Listing Page</div>
+      <div class="sel-row"><label>Item row:</label><input type="text" id="selListItemRow" placeholder="e.g. .ModuleItemRow, .post-item, article" /></div>
+      <div class="sel-row"><label>Title / link:</label><input type="text" id="selListTitleLink" placeholder="e.g. .news-link a, .post-title, h2 a" /></div>
+      <div class="sel-row"><label>Date:</label><input type="text" id="selListDate" placeholder="e.g. .ModuleDate, .post-date, time" /></div>
+      <div id="listingExtraFieldsContainer">
+        <div class="sel-row"><label>Document:</label><input type="text" id="selListDocument" placeholder="e.g. a.ModulePDFDownload, .attachment a (link to PDF/doc)" /></div>
+      </div>
+      <div class="sel-section-title">Detail Page</div>
+      <div id="detailFieldsContainer">
+        <div class="sel-row"><label>Title:</label><input type="text" id="selDetail_title" placeholder="e.g. h1, h1.module-details_title, .entry-title" /></div>
+        <div class="sel-row"><label>Date:</label><input type="text" id="selDetail_date" placeholder="e.g. span.module_date-text, .post-date, time" /></div>
+        <div class="sel-row"><label>Content:</label><input type="text" id="selDetail_content" placeholder="e.g. div.module_body, .entry-content, article" /></div>
+      </div>
+    </div>
+
+    <!-- Year URL mode -->
+    <div id="yearUrlSection">
+      <div class="form-group">
+        <div class="url-row">
+          <div class="url-input-wrap">
+            <label><span class="step-num">3</span>News Listing URL (any year)</label>
+            <input type="text" id="urlYear" placeholder="https://www.svcreit.com/news/ or https://www.svcreit.com/news/2013/default.aspx" />
+          </div>
+          <button class="btn-discover" id="discoverBtn" onclick="discoverYears()" disabled>Find All Years</button>
+        </div>
+      </div>
+      <div class="year-picker" id="yearPicker">
+        <div class="year-picker-header">
+          <h3 id="yearPickerTitle">Available Years</h3>
+          <div class="year-picker-actions">
+            <button onclick="selectAllYears()">Select All</button>
+            <button onclick="deselectAllYears()">Deselect All</button>
+          </div>
+        </div>
+        <div class="year-grid" id="yearGrid"></div>
+        <p class="scan-status" id="scanStatus"></p>
+      </div>
+      <div class="btn-row">
+        <button class="btn-scrape-all" id="scrapeSelectedBtn" onclick="scrapeSelected()" disabled>Scrape Selected Years</button>
+        <button id="clearBtnYear" class="btn-clear" onclick="clearData()" style="display:none;">Clear All</button>
+      </div>
+    </div>
+
+    <!-- Single page mode -->
+    <div id="singlePageSection" style="display:none;">
+      <div class="form-group">
+        <label><span class="step-num">3</span>News Listing URL</label>
+        <input type="text" id="urlSingle" placeholder="https://www.mubadala.com/en/news" />
+      </div>
+      <div class="single-page-options" id="loadMoreOptions" style="display:none;">
+        <div class="sp-row">
+          <label>Button selector:</label>
+          <input type="text" id="loadMoreSelector" placeholder="Leave empty for auto-detect" />
+        </div>
+        <p class="selector-hint">CSS selector for the "Load More" button.</p>
+      </div>
+      <div class="single-page-options" id="paginationOptions" style="display:none;">
+        <div class="sp-row">
+          <label>"Next" selector:</label>
+          <input type="text" id="paginationSelector" placeholder="Leave empty for auto-detect" />
+        </div>
+        <p class="selector-hint">CSS selector for the "Next page" link.</p>
+      </div>
+      <div class="btn-row">
+        <button class="btn-scrape-all" id="scrapeSingleBtn" onclick="scrapeSinglePage()" disabled>Scrape All Press Releases</button>
+        <button id="clearBtnSingle" class="btn-clear" onclick="clearData()" style="display:none;">Clear All</button>
+      </div>
+    </div>
+
+    <div class="error" id="error"></div>
+
+    <div class="progress-section" id="progressSection">
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+      <p class="progress-text" id="progressText">Starting...</p>
+      <div class="progress-log" id="progressLog"></div>
+    </div>
+
+    <div class="year-tags" id="yearTags">
+      <p class="year-tags-label">Years in JSON:</p>
+      <div class="year-tags-list" id="yearTagsList"></div>
+    </div>
+
+    <div class="result-section" id="resultSection">
+      <div class="result-header">
+        <h2>Result</h2>
+        <div class="btn-group">
+          <button class="copy-btn" onclick="copyResult()">Copy JSON</button>
+          <button class="download-btn" onclick="downloadResult()">Download JSON</button>
+        </div>
+      </div>
+      <p class="result-meta" id="resultMeta"></p>
+      <pre id="resultJson"></pre>
+    </div>
+  </div>
+
+  <script>
+    let resultData = null, sampleTemplate = null, sitemapKey = null;
+    let discoveredYears = [], selectedYears = new Set();
+    let currentMode = "year-url";
+
+    function autoDetect() {
+      const url = document.getElementById(currentMode === "year-url" ? "urlYear" : "urlSingle").value.trim();
+      if (!url) { showError("Enter a URL first, then click Auto-detect."); return; }
+      hideError();
+      const btn = document.getElementById("autoDetectBtn");
+      const status = document.getElementById("autoDetectStatus");
+      btn.disabled = true; btn.textContent = "Detecting...";
+      status.textContent = "Analyzing page structure...";
+      fetch("/api/auto-detect", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      }).then(r => r.json()).then(data => {
+        btn.disabled = false; btn.textContent = "Auto-detect from URL";
+        if (data.error) { status.textContent = "Failed: " + data.error; status.style.color = "#fca5a5"; return; }
+        let filled = 0;
+        if (data.listing) {
+          if (data.listing.itemRow) { document.getElementById("selListItemRow").value = data.listing.itemRow; filled++; }
+          if (data.listing.titleLink) { document.getElementById("selListTitleLink").value = data.listing.titleLink; filled++; }
+          if (data.listing.date) { document.getElementById("selListDate").value = data.listing.date; filled++; }
+        }
+        if (data.listing && data.listing.document) {
+          const docEl = document.getElementById("selListDocument") || document.getElementById("selList_document");
+          if (docEl) { docEl.value = data.listing.document; filled++; }
+        }
+        if (data.detail) {
+          for (const [key, val] of Object.entries(data.detail)) {
+            if (!val) continue;
+            if (DETAIL_FIELDS.has(key.toLowerCase())) {
+              const el = document.getElementById("selDetail_" + key);
+              if (el) { el.value = val; filled++; }
+            } else {
+              const el = document.getElementById("selList_" + key);
+              if (el) { el.value = val; filled++; }
+            }
+          }
+        }
+        status.textContent = filled > 0 ? "Detected " + filled + " selector(s) from " + (data.itemCount || "?") + " items" : "Could not detect selectors";
+        status.style.color = filled > 0 ? "#10b981" : "#fca5a5";
+      }).catch(err => {
+        btn.disabled = false; btn.textContent = "Auto-detect from URL";
+        status.textContent = "Error: " + err.message; status.style.color = "#fca5a5";
+      });
+    }
+
+    const DETAIL_PLACEHOLDER_MAP = {
+      title: "e.g. h1, h1.module-details_title, .entry-title",
+      date: "e.g. span.module_date-text, .post-date, time",
+      content: "e.g. div.module_body, .entry-content, article",
+    };
+    const LISTING_PLACEHOLDER_MAP = {
+      document: "e.g. a.ModulePDFDownload, .attachment a (link to PDF/doc)",
+    };
+    const DETAIL_FIELDS = new Set(["title", "date", "content"]);
+    const LINK_TYPES = ["general link", "general linkex", "link", "linkex"];
+
+    function buildDetailFields(fvs, fieldTypeSpec) {
+      const detailContainer = document.getElementById("detailFieldsContainer");
+      detailContainer.innerHTML = "";
+      const listingContainer = document.getElementById("listingExtraFieldsContainer");
+      listingContainer.innerHTML = "";
+      const fts = fieldTypeSpec || {};
+      for (const [key, val] of Object.entries(fvs)) {
+        const ft = (fts[key] || "").toLowerCase();
+        const isLink = LINK_TYPES.some(lt => ft.includes(lt));
+        const isDetailField = DETAIL_FIELDS.has(key.toLowerCase());
+        const row = document.createElement("div");
+        row.className = "sel-row";
+        const label = document.createElement("label");
+        const displayName = key.charAt(0).toUpperCase() + key.slice(1);
+        const typeHint = fts[key] ? ` <span style="color:#64748b;font-size:11px;">(${fts[key]})</span>` : "";
+        label.innerHTML = displayName + ":" + typeHint;
+        const input = document.createElement("input");
+        input.type = "text";
+        if (isDetailField) {
+          input.id = "selDetail_" + key;
+          input.placeholder = DETAIL_PLACEHOLDER_MAP[key] || "CSS selector for " + key;
+          if (val) input.value = val;
+          row.appendChild(label);
+          row.appendChild(input);
+          detailContainer.appendChild(row);
+        } else {
+          input.id = "selList_" + key;
+          input.placeholder = LISTING_PLACEHOLDER_MAP[key] || "e.g. a.pdf-link, .attachment a (link to PDF/doc)";
+          if (val) input.value = val;
+          row.appendChild(label);
+          row.appendChild(input);
+          listingContainer.appendChild(row);
+        }
+      }
+    }
+
+    function getSelectors() {
+      const detail = {};
+      const detailContainer = document.getElementById("detailFieldsContainer");
+      detailContainer.querySelectorAll("input[id^='selDetail_']").forEach(input => {
+        const key = input.id.replace("selDetail_", "");
+        detail[key] = input.value.trim();
+      });
+      const listingExtra = {};
+      const listingContainer = document.getElementById("listingExtraFieldsContainer");
+      listingContainer.querySelectorAll("input[id^='selList_']").forEach(input => {
+        const key = input.id.replace("selList_", "");
+        listingExtra[key] = input.value.trim();
+      });
+      const docEl = document.getElementById("selListDocument");
+      if (docEl && docEl.value.trim()) listingExtra.document = docEl.value.trim();
+      return {
+        listing: {
+          itemRow: document.getElementById("selListItemRow").value.trim(),
+          titleLink: document.getElementById("selListTitleLink").value.trim(),
+          date: document.getElementById("selListDate").value.trim(),
+          extra: listingExtra,
+        },
+        detail,
+      };
+    }
+
+    function toggleSelectors() {
+      document.getElementById("selectorsPanel").classList.toggle("open");
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById("tabYearUrl").className = "mode-tab" + (mode === "year-url" ? " active" : "");
+      document.getElementById("tabSingle").className = "mode-tab" + (mode === "single" ? " active-green" : "");
+      document.getElementById("tabSingleLoadMore").className = "mode-tab" + (mode === "load-more" ? " active-green" : "");
+      document.getElementById("tabSinglePagination").className = "mode-tab" + (mode === "pagination" ? " active-green" : "");
+
+      const desc = document.getElementById("modeDesc");
+      const descs = {
+        "year-url": "Each year has its own URL like /news/2013/, /news/2014/. The tool scans all years automatically.",
+        "single": "All press releases are on one page. The tool scrapes everything visible on the page.",
+        "load-more": 'All items are on one page behind a "Load More" button. The tool clicks it until all items load.',
+        "pagination": "Items are across numbered pages (1, 2, 3...). The tool follows Next links automatically.",
+      };
+      desc.textContent = descs[mode];
+      desc.className = "mode-desc" + (mode !== "year-url" ? " green" : "");
+
+      document.getElementById("yearUrlSection").style.display = mode === "year-url" ? "block" : "none";
+      document.getElementById("singlePageSection").style.display = mode !== "year-url" ? "block" : "none";
+      document.getElementById("loadMoreOptions").style.display = mode === "load-more" ? "block" : "none";
+      document.getElementById("paginationOptions").style.display = mode === "pagination" ? "block" : "none";
+      updateEnableState();
+    }
+
+    function updateEnableState() {
+      const has = !!sampleTemplate;
+      document.getElementById("discoverBtn").disabled = !has;
+      document.getElementById("scrapeSingleBtn").disabled = !has;
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        try {
+          sampleTemplate = JSON.parse(ev.target.result);
+          sitemapKey = Object.keys(sampleTemplate).find(k => {
+            const val = sampleTemplate[k];
+            return Array.isArray(val) && val.length > 0 && val[0].Level !== undefined;
+          });
+          if (!sitemapKey) { showError("Could not detect a Sitemap array in the uploaded JSON."); return; }
+          document.getElementById("uploadPlaceholder").style.display = "none";
+          document.getElementById("uploadSuccess").style.display = "block";
+          document.getElementById("uploadFileName").textContent = file.name + " loaded";
+          document.getElementById("uploadArea").classList.add("loaded");
+          showDetectedInfo();
+          updateEnableState();
+          hideError();
+          const fvs = sampleTemplate["Field Value Source"];
+          if (fvs) {
+            buildDetailFields(fvs, sampleTemplate["Field Type Specification"]);
+          }
+        } catch (err) { showError("Invalid JSON file: " + err.message); }
+      };
+      reader.readAsText(file);
+    }
+
+    function showDetectedInfo() {
+      const info = document.getElementById("detectedInfo");
+      const sitemap = sampleTemplate[sitemapKey];
+      const topKeys = Object.keys(sampleTemplate).filter(k => k !== sitemapKey);
+      let itemTpl = "", groupTpl = "", rootPath = "";
+      if (sitemap.length > 0) rootPath = sitemap[0].ItemPath || "";
+      function findDeep(nodes) {
+        for (const n of nodes) {
+          if (n.Children && n.Children.length > 0) { groupTpl = n["Template Name"] || n.Name || ""; findDeep(n.Children); }
+          else if (n.title !== undefined && n.content !== undefined) { itemTpl = n["Template Name"] || n.Name || ""; }
+        }
+      }
+      findDeep(sitemap);
+      info.style.display = "block";
+      info.innerHTML =
+        '<div class="det-row"><span class="det-label">Sitemap key:</span><span class="det-val">' + sitemapKey + '</span></div>' +
+        '<div class="det-row"><span class="det-label">Root path:</span><span class="det-val">' + rootPath + '</span></div>' +
+        '<div class="det-row"><span class="det-label">Group template:</span><span class="det-val">' + (groupTpl || "auto") + '</span></div>' +
+        '<div class="det-row"><span class="det-label">Item template:</span><span class="det-val">' + (itemTpl || "auto") + '</span></div>';
+    }
+
+    // ─── Year-URL Mode ───
+    function discoverYears() {
+      const url = document.getElementById("urlYear").value.trim();
+      if (!url) { showError("Please enter a URL first."); return; }
+      hideError(); discoveredYears = []; selectedYears.clear();
+      const picker = document.getElementById("yearPicker");
+      const grid = document.getElementById("yearGrid");
+      const scanStatus = document.getElementById("scanStatus");
+      const btn = document.getElementById("discoverBtn");
+      picker.style.display = "block"; grid.innerHTML = "";
+      btn.disabled = true; btn.textContent = "Scanning...";
+      document.getElementById("scrapeSelectedBtn").disabled = true;
+
+      fetch("/api/discover-years", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, selectors: getSelectors() }),
+      }).then(async (response) => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder(); let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n"); buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            let ev; try { ev = JSON.parse(line.substring(6)); } catch { continue; }
+            if (ev.type === "scanning") scanStatus.textContent = ev.message;
+            else if (ev.type === "found") {
+              discoveredYears.push({ year: String(ev.year), count: ev.count, url: ev.url || "" });
+              selectedYears.add(String(ev.year));
+              renderYearGrid();
+              scanStatus.textContent = ev.message + " (found " + discoveredYears.length + " so far)";
+            } else if (ev.type === "done") {
+              btn.disabled = false; btn.textContent = "Find All Years";
+              scanStatus.textContent = discoveredYears.length === 0
+                ? "No years with press releases found."
+                : "Found " + discoveredYears.length + " years. Select and scrape.";
+              if (discoveredYears.length > 0) document.getElementById("scrapeSelectedBtn").disabled = false;
+              document.getElementById("yearPickerTitle").textContent = "Available Years (" + discoveredYears.length + " found)";
+            } else if (ev.type === "error") { showError(ev.message); btn.disabled = false; btn.textContent = "Find All Years"; }
+          }
+        }
+      }).catch(err => { showError("Network error: " + err.message); btn.disabled = false; btn.textContent = "Find All Years"; });
+    }
+
+    function renderYearGrid() {
+      const grid = document.getElementById("yearGrid"); grid.innerHTML = "";
+      discoveredYears.forEach(y => {
+        const card = document.createElement("div");
+        card.className = "year-card" + (selectedYears.has(y.year) ? " selected" : "");
+        card.onclick = () => toggleYear(y.year);
+        card.innerHTML = '<input type="checkbox" ' + (selectedYears.has(y.year) ? "checked" : "") +
+          ' onclick="event.stopPropagation(); toggleYear(\'' + y.year + '\')" />' +
+          '<span class="year-name">' + y.year + '</span><span class="year-count">' + y.count + ' PRs</span>';
+        grid.appendChild(card);
+      });
+      updateScrapeBtn();
+    }
+    function toggleYear(y) { selectedYears.has(y) ? selectedYears.delete(y) : selectedYears.add(y); renderYearGrid(); }
+    function selectAllYears() { discoveredYears.forEach(y => selectedYears.add(y.year)); renderYearGrid(); }
+    function deselectAllYears() { selectedYears.clear(); renderYearGrid(); }
+    function updateScrapeBtn() {
+      const btn = document.getElementById("scrapeSelectedBtn"); const c = selectedYears.size;
+      btn.textContent = c > 0 ? "Scrape " + c + " Year" + (c > 1 ? "s" : "") : "Scrape Selected Years";
+      btn.disabled = c === 0;
+    }
+
+    function scrapeSelected() {
+      const url = document.getElementById("urlYear").value.trim();
+      const years = [...selectedYears].sort((a, b) => b - a);
+      if (!sampleTemplate) { showError("Upload a sample JSON first."); return; }
+      if (!url) { showError("Enter a URL."); return; }
+      if (years.length === 0) { showError("Select at least one year."); return; }
+      const yearUrls = {};
+      discoveredYears.forEach(y => { if (y.url) yearUrls[y.year] = y.url; });
+      hideError(); startProgress("Scraping " + years.length + " year(s)..."); disableButtons(true);
+      streamRequest("/api/scrape", { url, template: sampleTemplate, years, yearUrls, selectors: getSelectors() }, () => {
+        disableButtons(false); updateScrapeBtn();
+      });
+    }
+
+    // ─── Single Page Mode ───
+    function scrapeSinglePage() {
+      const url = document.getElementById("urlSingle").value.trim();
+      if (!sampleTemplate) { showError("Upload a sample JSON first."); return; }
+      if (!url) { showError("Enter a URL."); return; }
+      hideError(); startProgress("Loading page..."); disableButtons(true);
+      const body = { url, template: sampleTemplate, pageMode: currentMode, selectors: getSelectors() };
+      if (currentMode === "load-more") {
+        const s = document.getElementById("loadMoreSelector").value.trim();
+        if (s) body.loadMoreSelector = s;
+      } else if (currentMode === "pagination") {
+        const s = document.getElementById("paginationSelector").value.trim();
+        if (s) body.paginationNextSelector = s;
+      }
+      streamRequest("/api/scrape-single", body, () => disableButtons(false));
+    }
+
+    // ─── Shared ───
+    function streamRequest(endpoint, body, onComplete) {
+      fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(async (response) => {
+        const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read(); if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n"); buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            let ev; try { ev = JSON.parse(line.substring(6)); } catch { continue; }
+            if (ev.type === "status") document.getElementById("progressText").textContent = ev.message;
+            else if (ev.type === "detected") {
+              if (ev.listing) {
+                if (ev.listing.itemRow) document.getElementById("selListItemRow").value = ev.listing.itemRow;
+                if (ev.listing.titleLink) document.getElementById("selListTitleLink").value = ev.listing.titleLink;
+                if (ev.listing.date) document.getElementById("selListDate").value = ev.listing.date;
+                if (ev.listing.document) {
+                  const docEl = document.getElementById("selListDocument") || document.getElementById("selList_document");
+                  if (docEl) docEl.value = ev.listing.document;
+                }
+              }
+              if (ev.detail) {
+                for (const [key, val] of Object.entries(ev.detail)) {
+                  if (!val) continue;
+                  if (DETAIL_FIELDS.has(key.toLowerCase())) {
+                    const el = document.getElementById("selDetail_" + key);
+                    if (el) el.value = val;
+                  } else {
+                    const el = document.getElementById("selList_" + key);
+                    if (el) el.value = val;
+                  }
+                }
+              }
+            }
+            else if (ev.type === "progress") {
+              document.getElementById("progressBar").style.width = Math.round((ev.done / ev.total) * 100) + "%";
+              document.getElementById("progressText").textContent = ev.message;
+              if (ev.latest) { const log = document.getElementById("progressLog");
+                ev.latest.forEach(t => { const d = document.createElement("div"); d.textContent = (ev.year ? "[" + ev.year + "] " : "") + t; log.appendChild(d); log.scrollTop = log.scrollHeight; });
+              }
+            } else if (ev.type === "done") {
+              document.getElementById("progressBar").style.width = "100%";
+              resultData = ev.data;
+              document.getElementById("progressText").textContent = "Done! Scraped " + ev.total + " press releases.";
+              updateResultDisplay();
+            } else if (ev.type === "error") showError(ev.message);
+          }
+        }
+        if (onComplete) onComplete();
+      }).catch(err => { showError("Network error: " + err.message); if (onComplete) onComplete(); });
+    }
+
+    function startProgress(msg) {
+      document.getElementById("progressSection").style.display = "block";
+      document.getElementById("progressBar").style.width = "0%";
+      document.getElementById("progressText").textContent = msg;
+      document.getElementById("progressLog").innerHTML = "";
+    }
+    function disableButtons(d) {
+      document.getElementById("discoverBtn").disabled = d;
+      document.getElementById("scrapeSelectedBtn").disabled = d;
+      document.getElementById("scrapeSingleBtn").disabled = d;
+    }
+
+    function findYearNodes() {
+      if (!resultData || !sitemapKey || !resultData[sitemapKey]) return [];
+      const s = resultData[sitemapKey];
+      if (s.length === 1 && s[0].Children && s[0].Children.length > 0) return s[0].Children.filter(c => c.Children !== undefined);
+      return s.filter((n, i) => i > 0);
+    }
+    function getExistingYears() { return findYearNodes().map(c => c.Name); }
+    function getTotalPRCount() { return findYearNodes().reduce((sum, y) => sum + (y.Children ? y.Children.length : 0), 0); }
+
+    function updateYearTags() {
+      const tags = document.getElementById("yearTags"); const list = document.getElementById("yearTagsList");
+      const nodes = findYearNodes();
+      if (nodes.length === 0) { tags.style.display = "none"; return; }
+      tags.style.display = "block"; list.innerHTML = "";
+      nodes.forEach(n => {
+        const t = document.createElement("span"); t.className = "year-tag";
+        t.innerHTML = n.Name + '<span class="count">(' + (n.Children ? n.Children.length : 0) + ')</span>';
+        list.appendChild(t);
+      });
+    }
+
+    function updateResultDisplay() {
+      const json = JSON.stringify(resultData, null, 2);
+      document.getElementById("resultMeta").textContent =
+        getTotalPRCount() + " press releases across " + getExistingYears().length + " year(s) | " + (json.length / 1024).toFixed(1) + " KB";
+      document.getElementById("resultJson").textContent = json;
+      document.getElementById("resultSection").style.display = "block";
+      document.getElementById("clearBtnYear").style.display = "inline-block";
+      document.getElementById("clearBtnSingle").style.display = "inline-block";
+      updateYearTags();
+    }
+
+    function clearData() {
+      resultData = null;
+      ["resultSection","yearTags","clearBtnYear","clearBtnSingle","progressSection"].forEach(id => document.getElementById(id).style.display = "none");
+    }
+    function showError(msg) { const el = document.getElementById("error"); el.textContent = msg; el.style.display = "block"; }
+    function hideError() { document.getElementById("error").style.display = "none"; }
+    function copyResult() {
+      navigator.clipboard.writeText(document.getElementById("resultJson").textContent);
+      const b = document.querySelector(".copy-btn"); b.textContent = "Copied!"; setTimeout(() => b.textContent = "Copy JSON", 1500);
+    }
+    function downloadResult() {
+      if (!resultData) return;
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(resultData, null, 2)], { type: "application/json" }));
+      a.download = "sitemap-press-releases.json"; a.click(); URL.revokeObjectURL(a.href);
+    }
+  </script>
+</body>
+</html>
